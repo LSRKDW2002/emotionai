@@ -9,39 +9,69 @@ function Emotion() {
   const [text, setText] = useState('');
   const [analysis, setAnalysis] = useState({
     emotion: 'Neutral',
-    confidence: 75,
+    confidence: 0,
   });
-  const [showModal, setShowModal] = useState(true); // State for modal visibility
-  const [modalStep, setModalStep] = useState(0); // State for modal steps
+  const [loading, setLoading] = useState(false); // State for loading feedback
+  const [error, setError] = useState(''); // State for error handling
+  const [showModal, setShowModal] = useState(true); // Modal state
+  const [modalStep, setModalStep] = useState(0); // Modal step
 
-  const handleAnalyze = () => {
-    // Placeholder for backend API call
-    setAnalysis({
-      emotion: 'Happy', // Simulasi hasil emosi
-      confidence: 75,
-    });
+  const handleAnalyze = async () => {
+    if (!text.trim()) {
+      alert('Masukkan teks untuk dianalisis!'); // Validasi input kosong
+      return;
+    }
+
+    setLoading(true); // Mulai loading
+    setError(''); // Reset error
+    try {
+      const response = await fetch('http://127.0.0.1:8001/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Gagal menghubungi backend.');
+      }
+
+      const data = await response.json();
+      setAnalysis({
+        emotion: data.emotion,
+        confidence: data.confidence,
+      });
+    } catch (error) {
+      console.error(error);
+      setError('Terjadi kesalahan saat menganalisis emosi.');
+    } finally {
+      setLoading(false); // Selesai loading
+    }
   };
 
   const nextModalStep = () => {
     if (modalStep < 2) setModalStep(modalStep + 1);
-    else {
-      // Add animation for modal disappearing
-      setShowModal(false); // Close modal after animation
-    }
+    else setShowModal(false); // Tutup modal setelah langkah terakhir
   };
 
   const emotionIcons = {
-    Happy: faSmile,
-    Neutral: faMeh,
-    Sad: faFrown,
-    Angry: faAngry,
+    Bahagia: faSmile,
+    Netral: faMeh,
+    Sedih: faFrown,
+    Marah: faAngry,
   };
 
-  const emotionLabels = {
-    Happy: 'Bahagia',
-    Neutral: 'Netral',
-    Sad: 'Sedih',
-    Angry: 'Marah',
+  const emotionColors = {
+    Bahagia: 'text-green-400',
+    Netral: 'text-gray-400',
+    Sedih: 'text-blue-400',
+    Marah: 'text-red-400',
+  };
+
+  const getConfidenceColor = (confidence) => {
+    if (confidence < 25) return 'bg-red-500';
+    if (confidence >= 25 && confidence < 50) return 'bg-orange-500';
+    if (confidence >= 50 && confidence < 75) return 'bg-yellow-500';
+    return 'bg-green-500';
   };
 
   useEffect(() => {
@@ -103,9 +133,9 @@ function Emotion() {
       )}
 
       {/* Content */}
-      <div className={`flex flex-col items-center px-6 py-10 ${showModal ? 'opacity-20' : 'opacity-100'}`}>
+      <div className="flex flex-col items-center px-6 py-10">
         <h1 className="text-3xl font-bold mb-4" data-aos="fade-down">
-          Analisis emosi dengan text
+          Analisis emosi dengan teks
         </h1>
         <p
           className="text-purple-200 mb-8 text-center max-w-lg"
@@ -117,17 +147,20 @@ function Emotion() {
         <textarea
           className="w-full md:w-2/3 p-4 text-gray-800 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
           rows="4"
-          placeholder="Enter text here"
+          placeholder="Masukkan teks Anda di sini"
           value={text}
           onChange={(e) => setText(e.target.value)}
           data-aos="fade-up"
         ></textarea>
         <button
           onClick={handleAnalyze}
-          className="mt-4 px-6 py-3 bg-white text-purple-600 font-bold rounded-md hover:bg-purple-200 hover:scale-105 transition duration-300 blinking-button"
+          className={`mt-4 px-6 py-3 bg-white text-purple-600 font-bold rounded-md hover:bg-purple-200 hover:scale-105 transition duration-300 ${
+            loading ? 'cursor-wait' : ''
+          }`}
+          disabled={loading}
           data-aos="zoom-in"
         >
-          Analisis Emosi
+          {loading ? 'Menganalisis...' : 'Analisis Emosi'}
         </button>
 
         {/* Hasil Analisis */}
@@ -135,65 +168,44 @@ function Emotion() {
           className="mt-10 w-full md:w-2/3 bg-white bg-opacity-20 p-6 rounded-md shadow-lg"
           data-aos="fade-up"
         >
-          <h2 className="text-xl font-bold mb-6 text-white">Emotion Prediction</h2>
-          <div className="flex justify-between items-center mb-8">
-            {Object.keys(emotionIcons).map((emo) => (
-              <div
-                key={emo}
-                className={`flex flex-col items-center w-1/4 p-2 rounded-lg transition ${
-                  analysis.emotion === emo ? 'bg-purple-500 bg-opacity-50' : 'bg-transparent'
-                } hover:animate-bounce`}
-              >
+          <h2 className="text-xl font-bold mb-6 text-white">Hasil Analisis</h2>
+          {error && <p className="text-red-400">{error}</p>}
+          {!error && (
+            <div>
+              {/* Tampilkan FontAwesome icon berdasarkan emosi */}
+              <div className="flex justify-center items-center mb-4">
                 <FontAwesomeIcon
-                  icon={emotionIcons[emo]}
-                  className={`text-3xl mb-2 ${
-                    analysis.emotion === emo ? 'text-purple-200' : 'text-purple-400'
-                  } hover:animate-bounce`}
-                />
-                <span
-                  className={`font-medium ${
-                    analysis.emotion === emo ? 'text-white' : 'text-purple-300'
+                  icon={emotionIcons[analysis.emotion] || faMeh}
+                  className={`text-6xl ${
+                    emotionColors[analysis.emotion] || 'text-gray-400'
                   }`}
-                >
-                  {emotionLabels[emo]}
-                </span>
+                />
               </div>
-            ))}
-          </div>
-          <div>
-            <p className="text-purple-200 mb-2">
-              Confidence: <span className="text-white">{analysis.confidence}%</span>
-            </p>
-            <div className="w-full bg-purple-300 h-2 rounded-full">
-              <div
-                className="bg-purple-500 h-2 rounded-full"
-                style={{ width: `${analysis.confidence}%` }}
-              ></div>
+              <p className="text-center text-lg font-bold text-white">
+                Emosi: {analysis.emotion}
+              </p>
+
+              {/* Confidence Bar */}
+              <div className="mt-4">
+                <p className="text-purple-200 mb-2">
+                  Confidence: <span className="text-white">{analysis.confidence}%</span>
+                </p>
+                <div className="w-full bg-purple-300 h-2 rounded-full">
+                  <div
+                    className={`h-2 rounded-full ${getConfidenceColor(
+                      analysis.confidence
+                    )}`}
+                    style={{ width: `${analysis.confidence}%` }}
+                  ></div>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
       {/* Inline CSS Animations */}
       <style jsx>{`
-        .blinking-button {
-          animation: blink 1.5s infinite ease-in-out;
-        }
-
-        @keyframes blink {
-          0%, 100% {
-            background-color: #ffffff;
-          }
-          50% {
-            background-color: #d1c4e9;
-          }
-        }
-
-        .blinking-button:hover {
-          animation: none;
-          background-color: #d1c4e9;
-        }
-
         .hover\\:animate-bounce:hover {
           animation: bounce 0.6s infinite alternate;
         }
